@@ -147,7 +147,69 @@ reviewed someone else's all without leaving the comfort of our own shell.
 Truth be told, in practice the web interface is still very useful, especially
 for inline code review comments and for extra information, but I hope this tool
 will save you a few window swaps.
+
+
+Commands
+--------
+ 
+```
+Usage:
+
+  gerrit <command>
+
+Commands:
+
+  config [<gerrit_name>|--all]
+    Show the configured options for <gerrit_name>. If a configuration does not
+    exist you will have the option to create one.
+
+  projects [<gerrit_name>]
+    Display the list of projects for which you have access on the <gerrit_name>
+    remote.
+
+  clone [<gerrit_name> [<project_name> [<destination_folder>]]]
+    Clone <project_name> from <gerrit_name> into <destination_folder>. This
+    will also download and install the very useful commit-msg hook for the project.
+
+  status
+    The status of Gerrit.
+    ALIAS: st
+
+  push [<base_branch>]
+    Push the current branch to the remote as a topic of the same name as the
+    current branch and based one <base_branch>. If the <base_branch> is not
+    provided it is defaulted to master. Essentially the same as `git push
+    origin HEAD:refs/for/<base_branch>/<current_branch>` 
     
+  draft [<base_branch]
+    Same as push, but as a draft 
+    (ie: refs/drafts/<base_branch>/<current_branch>)
+
+  assign <reviewer> [<reviewer> ...]
+    Assign reviewers by username to the current topic.
+
+  checkout <change_id>|<topic> [<patch_id>]
+    Fetch the patch from remote and create a branch for it of the same name as
+    the topic. If the patch is not provided it will automatically fetch the latest.
+    ALIAS: co
+
+  recheckout
+    Re-checkout the current topic at the latest patchset, useful when a new
+    patchset has been uploaded.
+    ALIAS: reco
+
+  review|submit|abandon [<verified_score> <code_review_score> [<message>]]
+    Give a review of the current checked out patch, also optionally submitting or
+    abandoning it.
+
+  pubmit
+    Same as `gerrit push && gerrit submit 1 2 "auto-submit"`
+    ALIAS: ninja
+    
+  ssh <command>
+    Run a custom gerrit server command, see 
+    https://review.openstack.org/Documentation/cmd-index.html#_a_id_user_commands_a_user_commands
+```
 
 TODO
 ----
