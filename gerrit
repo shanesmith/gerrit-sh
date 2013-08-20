@@ -1,0 +1,553 @@
+#!/bin/bash
+
+op=$1
+remote_name=
+remote_user=
+remote_host=
+remote_port=
+project=
+
+show_usage() {
+	cat <<EOF
+Usage:
+
+  gerrit <command>
+
+Commands:
+
+  config [<gerrit_name>|--all]
+    Show the configured options for <gerrit_name>. If a configuration does not
+    exist you will have the option to create one.
+
+  projects [<gerrit_name>]
+    Display the list of projects for which you have access on the <gerrit_name>
+    remote.
+
+  clone [<gerrit_name> [<project_name> [<destination_folder>]]]
+    Clone <project_name> from <gerrit_name> into <destination_folder>. This
+    will also download and install the very useful commit-msg hook for the project.
+
+  status
+    The status of Gerrit.
+    ALIAS: st
+
+  push [<base_branch>]
+    Push the current branch to the remote as a topic of the same name as the
+    current branch and based one <base_branch>. If the <base_branch> is not
+    provided it is defaulted to master. Essentially the same as \`git push
+    origin HEAD:refs/for/<base_branch>/<current_branch>\` 
+    
+  draft [<base_branch]
+    Same as push, but as a draft 
+    (ie: refs/drafts/<base_branch>/<current_branch>)
+
+  assign <reviewer> [<reviewer> ...]
+    Assign reviewers by username to the current topic.
+
+  checkout <change_id>|<topic> [<patch_id>]
+    Fetch the patch from remote and create a branch for it of the same name as
+    the topic. If the patch is not provided it will automatically fetch the latest.
+    ALIAS: co
+
+  recheckout
+    Re-checkout the current topic at the latest patchset, useful when a new
+    patchset has been uploaded.
+    ALIAS: reco
+
+  review|submit|abandon [<verified_score> <code_review_score> [<message>]]
+    Give a review of the current checked out patch, also optionally submitting or
+    abandoning it.
+
+  pubmit
+    Same as \`gerrit push && gerrit submit 1 2 "auto-submit"\`
+    ALIAS: ninja
+    
+  ssh <command>
+    Run a custom gerrit server command, see 
+    https://review.openstack.org/Documentation/cmd-index.html#_a_id_user_commands_a_user_commands
+EOF
+}
+
+die() {
+	echo -e "=========\n  ERROR\n========="
+	echo -e "${@}"
+	exit
+}
+
+ask() {
+
+	local question=$1 default=$2
+
+	if [[ -n $default ]]; then
+		question="$question [$default]"
+	fi
+
+	read -p "$question "
+
+	if [[ -z $REPLY ]]; then
+		REPLY="$default"
+	fi
+
+}
+
+confirm() {
+
+  local question=$1 default=$(lowercase "$2")
+
+  if [[ $default == "y" ]]; then
+    prompt="[Y/n]"
+  elif [[ $default == "n" ]]; then
+    prompt="[y/N]"
+  else
+    die "WHAT?! confirm doesn't know '$default'"
+  fi
+
+	while true; do
+
+		ask "$question $prompt "
+
+		REPLY=$(lowercase "$REPLY")
+
+		if [[ $REPLY == "yes" ]]; then
+			REPLY=y
+		elif [[ $REPLY == "no" ]]; then
+			REPLY=n
+    elif [[ -z $REPLY ]]; then
+      REPLY="$default"
+		fi
+
+		if [[ $REPLY =~ [yn] ]]; then
+			break
+		fi
+
+	done
+
+}
+
+lowercase() {
+  echo "$1" | tr '[A-Z]' '[a-z]'
+}
+
+uppercase() {
+  echo "$1" | tr '[a-z]' '[A-Z]'
+}
+
+ssh_gerrit() {
+	ssh -p $remote_port "$remote_user@$remote_host" -- gerrit $1
+}
+
+get_all_gerrit_remote_names() {
+  git config --global --get-regexp 'gerrit.*.host' | sed 's/^gerrit\.\(.*\)\.host.*$/\1/g'
+}
+
+get_gerrit_remote_config() {
+	local name=${1:-"default"}
+
+	remote_name="$name"
+	remote_user=$(git config "gerrit.$name.user")
+	remote_host=$(git config "gerrit.$name.host")
+	remote_port=$(git config "gerrit.$name.port")
+
+	if [[ -z $remote_host ]]; then
+    confirm "I couldn't find a config for \"$name\", would you like to create one?" 'y'
+    if [[ $REPLY == "y" ]]; then
+      setup_gerrit_config "$name"
+    else
+      exit
+    fi
+	fi
+}
+
+get_repo_remote_config() {
+	check_in_git_repo
+	local branch=${1:-"master"}
+	remote_name=$(git config "branch.$branch.remote")
+	local remote_url=$(git config "remote.$remote_name.url" | sed -e 's|^ssh://||')
+	remote_port=$(echo $remote_url | sed -e 's|^.*:||' -e 's|/.*$||')
+	remote_host=$(echo $remote_url | sed -e 's|^.*@||' -e 's|:.*$||')
+	remote_user=$(echo $remote_url | sed -e 's|@.*$||')
+	project=$(echo $remote_url | sed -e 's|^[^/]*/||' -e 's|\.git||')
+}
+
+setup_gerrit_config() {
+	local name=${1:-"default"}
+
+	if [[ -n $(git config --get-regexp "^gerrit.$name") ]]; then
+		confirm "A gerrit remote config for \"$name\" already exists, edit?" "Y"
+		if [[ $REPLY == "n" ]]; then
+			exit
+		fi
+		get_gerrit_remote_config $name
+	fi
+
+	echo -e "\nSetting up gerrit remote config for \"$name\""
+
+	ask "Remote Gerrit Host:" "$remote_host"
+	remote_host="$REPLY"
+
+	ask "Remote Gerrit Username:" "$remote_user"
+	remote_user="$REPLY"
+
+	ask "Remote Gerrit Port:" ${remote_port:-29418}
+	remote_port="$REPLY"
+
+	git config --global "gerrit.$name.host" "$remote_host"
+	git config --global "gerrit.$name.user" "$remote_user"
+	git config --global "gerrit.$name.port" "$remote_port"
+
+  echo -e "\nSuccess!\n"
+}
+
+setup_commit_msg_hook() {
+	if [[ ! -d .git/hooks ]]; then
+		echo "Could not find .git/hooks directory to setup commit-msg hook"
+		return
+	fi
+	scp -p -P "$remote_port" "$remote_user@$remote_host:hooks/commit-msg" ".git/hooks/"
+}
+
+get_projects() {
+	get_gerrit_remote_config "$1"
+  ssh_gerrit "ls-projects"
+}
+
+in_git_repo() {
+	git rev-parse --git-dir &> /dev/null
+}
+
+check_in_git_repo() {
+	if ! in_git_repo; then
+		die "You must be in a git repository to run that command."
+	fi
+}
+
+case $op in
+
+	ssh)
+    remote_name="$2"
+
+    ssh_command="$3"
+
+		get_gerrit_remote_config "$remote_name"
+
+    ssh_gerrit "$ssh_command"
+		;;
+
+  pubmit|ninja)
+    gerrit push && gerrit submit 1 2 "auto-submit"
+    ;;
+
+	push|draft)
+
+		check_in_git_repo
+
+		get_repo_remote_config
+
+		if [[ $op = "push" ]]; then
+			type="for"
+		elif [[ $op = "draft" ]]; then
+			type="drafts"
+		fi
+
+		if [[ $# < 2 ]]; then
+			branch="master"
+		else
+			branch=$2
+		fi
+
+		topic=$(git symbolic-ref HEAD | cut -d'/' -f 3)
+
+		ref="refs/$type/$branch/$topic"
+
+		echo "Pushing to $remote_name ($ref)"
+
+		git push $remote_name "HEAD:$ref"
+
+		;;
+
+	config)
+
+    all_gerrit_names="$2"
+
+    if [[ -z $all_gerrit_names && in_git_repo ]]; then
+        all_gerrit_names=$(git config remote.origin.gerrit)
+    fi
+
+    if [[ -z $all_gerrit_names || $all_gerrit_names == "--all" ]]; then
+      all_gerrit_names=$(get_all_gerrit_remote_names)
+    fi
+
+    if [[ -z $all_gerrit_names ]]; then
+      all_gerrit_names="default"
+    fi
+
+    for gerrit_name in $all_gerrit_names; do
+
+      get_gerrit_remote_config "$gerrit_name"
+
+      echo "---------------"
+      echo "Conf: $remote_name"
+      echo "---------------"
+      echo "Host: $remote_host"
+      echo "User: $remote_user"
+      echo "Port: $remote_port"
+      echo ""
+
+    done
+
+		;;
+
+	clone)
+
+		remote_name="$2"
+		project="$3"
+		folder="${4:-$project}"
+
+		get_gerrit_remote_config "$remote_name"
+
+		if [[ -z $project ]]; then
+			echo "Which project would you like to clone?"
+			echo "[$remote_name]"
+			get_projects "$remote_name" | awk '{ print "> ", $0 }'
+			ask "Project:"
+			if [[ -z $REPLY ]]; then exit; fi
+			project="$REPLY"
+			ask "Into which folder?" "$project"
+			folder="$REPLY"
+		fi
+
+		if [[ -e "$folder" ]]; then
+			die "File or folder $folder already exists."
+		fi
+
+
+		echo "Cloning project $project from $remote_name into folder $folder..."
+
+		git clone "ssh://$remote_user@$remote_host:$remote_port/$project.git" "$folder"
+
+		if [[ $? -eq 0 ]]; then
+
+			cd "$folder"
+
+      git config remote.origin.gerrit "$remote_name"
+
+			echo "Setting up commit-msg hook..."
+
+			setup_commit_msg_hook
+
+			echo "Done!"
+
+		fi
+
+		;;
+
+	projects)
+
+    gerrit_name="$2"
+
+    if [[ -z $gerrit_name && in_git_repo ]]; then
+        gerrit_name=$(git config remote.origin.gerrit)
+    fi
+
+    get_projects "$gerrit_name"
+
+		;;
+
+	st|status)
+
+		check_in_git_repo
+
+		get_repo_remote_config
+
+		query="status:open project:$project"
+
+		if [[ $2 != "all" ]]; then
+			query="$query reviewer:$remote_user"
+		fi
+
+		result=$(ssh_gerrit "query '$query'")
+
+		number=
+		owner=
+		subject=
+		topic=
+
+		while read line; do
+			if [[ $line =~ ^\s*$ ]]; then
+				echo "$number [$topic] \"$subject\" ($owner)"
+				number=
+				owner=
+				subject=
+				topic=
+			elif [[ $line =~ ^number ]]; then
+				number=$(echo $line | sed -e 's|^.*: *||')
+			elif [[ $line =~ ^name ]]; then
+				owner=$(echo $line | sed -e 's|^.*: *||')
+			elif [[ $line =~ ^subject ]]; then
+				subject=$(echo $line | sed -e 's|^.*: *||')
+			elif [[ $line =~ ^topic ]]; then
+				topic=$(echo $line | sed -e 's|^.*: *||')
+				#else
+				#echo "$line"
+			fi
+
+		done < <(echo "$result")
+
+		;;
+
+	review|submit|abandon)
+
+		check_in_git_repo
+
+		get_repo_remote_config
+
+		commit=$(git rev-list --max-count=1 HEAD)
+
+		if [[ $# < 4 ]]; then
+			ask "Verified: (-1 .. +1)"
+			verified="$REPLY"
+
+			ask "Code Review: (-2 .. +2)"
+			code_review="$REPLY"
+
+			ask "Message:"
+			message="$REPLY"
+		else
+			verified="$2"
+			code_review="$3"
+			message="$4"
+		fi
+
+		action=
+		if [[ $op == "submit" ]]; then
+			action="--submit"
+		elif [[ $op == "abandon" ]]; then
+			action="--abandon"
+		fi
+
+		ssh_gerrit "review $action --project \"$project\" --verified \"$verified\" --message \"$message\" --code-review \"$code_review\" $commit"
+
+		;;
+
+	assign)
+
+		check_in_git_repo
+
+		get_repo_remote_config
+
+		commit=$(git rev-list --max-count=1 HEAD)
+
+    shift
+
+   while [[ $# -gt 0 ]]; do
+
+      reviewer="$1"
+
+      ssh_gerrit "set-reviewers --add \"$reviewer\" -- $commit"
+
+      shift
+
+    done
+
+		;;
+
+  checkout|co|recheckout|reco)
+
+    is_reco=
+    if [[ $op =~ recheckout|reco ]]; then
+      is_reco="yes"
+    fi
+
+		check_in_git_repo
+
+		get_repo_remote_config
+
+    if [[ $is_reco ]]; then
+      target=$(git symbolic-ref HEAD | cut -d'/' -f 3)
+    else 
+      target=$2
+    fi
+
+    if [[ $target =~ ^[0-9]+$ ]]; then
+
+      change_id=$target
+
+      query_result=$(ssh_gerrit "query $change_id")
+
+      rowCount=$(echo "$query_result" | awk -F':' '/^rowCount/ { print $2 }')
+
+      if [[ $rowCount -eq 0 ]]; then
+        die "Could not find change id \"$target\""
+      fi
+
+      topic=$(echo "$query_result" | awk -F ':' '/^ *topic/ { print $2 }' | tr -d ' ')
+      if [[ -z $topic ]]; then
+        echo "WARNING: No topic found for this patch, you will be checked-out in a detached head."
+      fi
+
+    else 
+
+      topic=$target
+
+      change_id=$(ssh_gerrit "query project:$project topic:$topic limit:1" | awk -F ':' '/^ *number/ { print $2 }' | tr -d ' ')
+
+      if [[ -z $change_id ]]; then
+        die "Could not find topic \"$target\""
+      fi
+
+    fi
+
+		hash=$(($change_id % 100))
+		case $hash in
+			[0-9]) hash="0$hash" ;;
+		esac
+
+		ref="refs/changes/$hash/$change_id"
+
+    if [[ $is_reco && $# -ge 2 ]]; then
+      patch_id=$2
+		elif [[ $# -ge 3 ]]; then
+			patch_id=$3
+		else
+			echo "Getting latest patchset..."
+			patch_id=$(git ls-remote $remote_name "$ref/*" | sed -n 's|.*/||p' | sort -n | tail -n 1)
+		fi
+
+		ref="$ref/$patch_id"
+
+		echo "Refspec is $ref"
+
+    git fetch $remote_name $ref
+
+    if [ $? -eq 0 ]; then
+
+      # TODO: Ensure no changes before changing branch
+      if [[ $topic == "master" ]]; then
+        echo "Patch topic is \"master\", therefore staying on detached head."
+      elif [[ -n $topic && $(git branch | grep "$topic") ]]; then
+        if [[ $is_reco ]]; then
+          REPLY='y'
+        else
+          ask "Branch with name $topic already exists, overwrite?"
+        fi
+        if [[ $REPLY ==  'y' ]]; then
+          git checkout master
+          git branch -D "$topic"
+        fi
+      fi
+
+      if [[ -z $topic || $(git branch | grep "$topic") ]]; then
+        git checkout FETCH_HEAD
+      else
+        git checkout -b $topic FETCH_HEAD
+      fi
+
+    fi
+
+    ;;
+
+  *)
+    show_usage
+    ;;
+
+esac
