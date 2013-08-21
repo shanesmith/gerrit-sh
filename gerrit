@@ -16,26 +16,31 @@ Usage:
 Commands:
 
   config [<gerrit_name>|--all]
-    Show the configured options for <gerrit_name>. If a configuration does not
-    exist you will have the option to create one.
+    Show the server configurations for <gerrit_name>, or all configurations, or
+    if none specified the configuration of the current project. If a
+    configuration does not exist for the specified name you will have the
+    option to create one.
 
-  projects [<gerrit_name>]
+  projects <gerrit_name>
     Display the list of projects for which you have access on the <gerrit_name>
     remote.
 
-  clone [<gerrit_name> [<project_name> [<destination_folder>]]]
+  clone <gerrit_name> [<project_name> [<destination_folder>]]
     Clone <project_name> from <gerrit_name> into <destination_folder>. This
-    will also download and install the very useful commit-msg hook for the project.
+    will also download and install the often forgotten commit-msg hook for the
+    project.
+
+The current working directory must be in a git repository for the following
+commands.
 
   status
-    The status of Gerrit.
+    List the open patches for which you are assigned.
     ALIAS: st
 
   push [<base_branch>]
-    Push the current branch to the remote as a topic of the same name as the
-    current branch and based one <base_branch>. If the <base_branch> is not
-    provided it is defaulted to master. Essentially the same as \`git push
-    origin HEAD:refs/for/<base_branch>/<current_branch>\` 
+    Push the current topic branch to the remote based one <base_branch>. If the
+    <base_branch> is not provided it is defaulted to master. Essentially the
+    same as \`git push origin HEAD:refs/for/<base_branch>/<current_branch>\`.
     
   draft [<base_branch]
     Same as push, but as a draft 
@@ -44,9 +49,10 @@ Commands:
   assign <reviewer> [<reviewer> ...]
     Assign reviewers by username to the current topic.
 
-  checkout <change_id>|<topic> [<patch_id>]
-    Fetch the patch from remote and create a branch for it of the same name as
-    the topic. If the patch is not provided it will automatically fetch the latest.
+  checkout <change_id>|<topic> [<patchset_number>]
+    Fetch the patch from remote and create a branch for it of the topic name.
+    If the patchset number is not provided it will automatically fetch the
+    latest.
     ALIAS: co
 
   recheckout
@@ -67,7 +73,7 @@ Commands:
     Same as \`gerrit push && gerrit submit "auto-submit"\`
     ALIAS: ninja
     
-  ssh <command>
+  ssh [<gerrit_name>] <command>
     Run a custom gerrit server command, see 
     https://review.openstack.org/Documentation/cmd-index.html#_server
 EOF
@@ -146,7 +152,7 @@ get_all_gerrit_remote_names() {
 }
 
 get_gerrit_remote_config() {
-	local name=${1:-"default"}
+	local name="$1"
 
 	remote_name="$name"
 	remote_user=$(git config "gerrit.$name.user")
@@ -175,7 +181,7 @@ get_repo_remote_config() {
 }
 
 setup_gerrit_config() {
-	local name=${1:-"default"}
+	local name="$1"
 
 	if [[ -n $(git config --get-regexp "^gerrit.$name") ]]; then
 		confirm "A gerrit remote config for \"$name\" already exists, edit?" "Y"
@@ -234,6 +240,17 @@ case $op in
 
     ssh_command="$3"
 
+    if [[ -z $ssh_command ]]; then
+
+      if ! in_git_repo; then
+        die "A gerrit config name is required for this command."
+      fi
+
+      ssh_command="$remote_name"
+      remote_name=$(git config remote.origin.gerrit)
+
+    fi
+
 		get_gerrit_remote_config "$remote_name"
 
     ssh_gerrit "$ssh_command"
@@ -284,7 +301,7 @@ case $op in
     fi
 
     if [[ -z $all_gerrit_names ]]; then
-      all_gerrit_names="default"
+      die "A gerrit config name is required for this command."
     fi
 
     for gerrit_name in $all_gerrit_names; do
@@ -305,11 +322,15 @@ case $op in
 
 	clone)
 
-		remote_name="$2"
+		gerrit_name="$2"
 		project="$3"
 		folder="${4:-$project}"
 
-		get_gerrit_remote_config "$remote_name"
+    if [[ -z $gerrit_name ]]; then
+      die "A gerrit config name is required for this command."
+    fi
+
+		get_gerrit_remote_config "$gerrit_name"
 
 		if [[ -z $project ]]; then
 			echo "Which project would you like to clone?"
@@ -351,8 +372,8 @@ case $op in
 
     gerrit_name="$2"
 
-    if [[ -z $gerrit_name && in_git_repo ]]; then
-        gerrit_name=$(git config remote.origin.gerrit)
+    if [[ -z $gerrit_name ]]; then
+      die "A gerrit config name is required for this command."
     fi
 
     get_projects "$gerrit_name"
