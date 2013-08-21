@@ -54,17 +54,22 @@ Commands:
     patchset has been uploaded.
     ALIAS: reco
 
-  review|submit|abandon [<verified_score> <code_review_score> [<message>]]
-    Give a review of the current checked out patch, also optionally submitting or
-    abandoning it.
+  review [<verified_score> <code_review_score> [<message>]]
+    Give a review of the current checked out patch.
+
+  submit [<message>]
+    Submit the patch for merging with verified = 1 and code-review = 2.
+
+  abandon [<message>]
+    Abandon the patch.
 
   pubmit
-    Same as \`gerrit push && gerrit submit 1 2 "auto-submit"\`
+    Same as \`gerrit push && gerrit submit "auto-submit"\`
     ALIAS: ninja
     
   ssh <command>
     Run a custom gerrit server command, see 
-    https://review.openstack.org/Documentation/cmd-index.html#_a_id_user_commands_a_user_commands
+    https://review.openstack.org/Documentation/cmd-index.html#_server
 EOF
 }
 
@@ -224,6 +229,7 @@ check_in_git_repo() {
 case $op in
 
 	ssh)
+
     remote_name="$2"
 
     ssh_command="$3"
@@ -234,7 +240,7 @@ case $op in
 		;;
 
   pubmit|ninja)
-    gerrit push && gerrit submit 1 2 "auto-submit"
+    gerrit push && gerrit submit "auto-submit"
     ;;
 
 	push|draft)
@@ -403,29 +409,57 @@ case $op in
 
 		commit=$(git rev-list --max-count=1 HEAD)
 
-		if [[ $# < 4 ]]; then
-			ask "Verified: (-1 .. +1)"
-			verified="$REPLY"
+    action=
+    verified=
+    code_review=
+    message=
 
-			ask "Code Review: (-2 .. +2)"
-			code_review="$REPLY"
+    case $op in
 
-			ask "Message:"
-			message="$REPLY"
-		else
-			verified="$2"
-			code_review="$3"
-			message="$4"
-		fi
+      review)
+        if [[ $# < 3 ]]; then
+          ask "Verified: (-1 .. +1)"
+          verified="$REPLY"
 
-		action=
-		if [[ $op == "submit" ]]; then
-			action="--submit"
-		elif [[ $op == "abandon" ]]; then
-			action="--abandon"
-		fi
+          ask "Code Review: (-2 .. +2)"
+          code_review="$REPLY"
 
-		ssh_gerrit "review $action --project \"$project\" --verified \"$verified\" --message \"$message\" --code-review \"$code_review\" $commit"
+          ask "Message:"
+          message="$REPLY"
+        else
+          verified="$2"
+          code_review="$3"
+          message="$4"
+        fi
+        ;;
+
+      submit)
+        action="--submit"
+        verified=1
+        code_review=2
+        message="$2"
+        ;;
+
+      abandon)
+        action="--abandon"
+        message="$2"
+        ;;
+
+    esac
+
+    if [[ -n $verified ]]; then
+      verified="--verified \"$verified\""
+    fi
+
+    if [[ -n $code_review ]]; then
+      code_review="--code-review \"$code_review\""
+    fi
+
+    if [[ -n $message ]]; then
+      message="--message \"$message\""
+    fi
+
+		ssh_gerrit "review $action --project \"$project\" $verified $code_review $message $commit"
 
 		;;
 
