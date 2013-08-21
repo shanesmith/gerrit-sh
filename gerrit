@@ -255,6 +255,10 @@ case $op in
       ssh_command="$remote_name"
       remote_name=$(get_repo_gerrit_name)
 
+      if [[ -z $remote_name ]]; then
+        die "A gerrit config name is required for this command."
+      fi
+
     fi
 
     get_gerrit_remote_config "$remote_name"
