@@ -160,26 +160,31 @@ Usage:
 Commands:
 
   config [<gerrit_name>|--all]
-    Show the configured options for <gerrit_name>. If a configuration does not
-    exist you will have the option to create one.
+    Show the server configurations for <gerrit_name>, or all configurations, or
+    if none specified the configuration of the current project. If a
+    configuration does not exist for the specified name you will have the
+    option to create one.
 
-  projects [<gerrit_name>]
+  projects <gerrit_name>
     Display the list of projects for which you have access on the <gerrit_name>
     remote.
 
-  clone [<gerrit_name> [<project_name> [<destination_folder>]]]
+  clone <gerrit_name> [<project_name> [<destination_folder>]]
     Clone <project_name> from <gerrit_name> into <destination_folder>. This
-    will also download and install the very useful commit-msg hook for the project.
+    will also download and install the often forgotten commit-msg hook for the
+    project.
+
+The current working directory must be in a git repository for the following
+commands.
 
   status
-    The status of Gerrit.
+    List the open patches for which you are assigned.
     ALIAS: st
 
   push [<base_branch>]
-    Push the current branch to the remote as a topic of the same name as the
-    current branch and based one <base_branch>. If the <base_branch> is not
-    provided it is defaulted to master. Essentially the same as `git push
-    origin HEAD:refs/for/<base_branch>/<current_branch>` 
+    Push the current topic branch to the remote based one <base_branch>. If the
+    <base_branch> is not provided it is defaulted to master. Essentially the
+    same as `git push origin HEAD:refs/for/<base_branch>/<current_branch>`.
     
   draft [<base_branch]
     Same as push, but as a draft 
@@ -188,9 +193,10 @@ Commands:
   assign <reviewer> [<reviewer> ...]
     Assign reviewers by username to the current topic.
 
-  checkout <change_id>|<topic> [<patch_id>]
-    Fetch the patch from remote and create a branch for it of the same name as
-    the topic. If the patch is not provided it will automatically fetch the latest.
+  checkout <change_id>|<topic> [<patchset_number>]
+    Fetch the patch from remote and create a branch for it of the topic name.
+    If the patchset number is not provided it will automatically fetch the
+    latest.
     ALIAS: co
 
   recheckout
@@ -198,17 +204,22 @@ Commands:
     patchset has been uploaded.
     ALIAS: reco
 
-  review|submit|abandon [<verified_score> <code_review_score> [<message>]]
-    Give a review of the current checked out patch, also optionally submitting or
-    abandoning it.
+  review [<verified_score> <code_review_score> [<message>]]
+    Give a review of the current checked out patch.
+
+  submit [<message>]
+    Submit the patch for merging with verified = 1 and code-review = 2.
+
+  abandon [<message>]
+    Abandon the patch.
 
   pubmit
-    Same as `gerrit push && gerrit submit 1 2 "auto-submit"`
+    Same as `gerrit push && gerrit submit "auto-submit"`
     ALIAS: ninja
     
-  ssh <command>
+  ssh [<gerrit_name>] <command>
     Run a custom gerrit server command, see 
-    https://review.openstack.org/Documentation/cmd-index.html#_a_id_user_commands_a_user_commands
+    https://review.openstack.org/Documentation/cmd-index.html#_server
 ```
 
 TODO
