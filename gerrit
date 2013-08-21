@@ -169,8 +169,14 @@ get_gerrit_remote_config() {
   fi
 }
 
+get_repo_gerrit_name() {
+  # FIXME: can't assume it's always origin
+  git config remote.origin.gerrit
+}
+
 get_repo_remote_config() {
   check_in_git_repo
+  # FIXME: can't assume master's remote tracking will be gerrit server
   local branch=${1:-"master"}
   remote_name=$(git config "branch.$branch.remote")
   local remote_url=$(git config "remote.$remote_name.url" | sed -e 's|^ssh://||')
@@ -247,7 +253,7 @@ case $op in
       fi
 
       ssh_command="$remote_name"
-      remote_name=$(git config remote.origin.gerrit)
+      remote_name=$(get_repo_gerrit_name)
 
     fi
 
@@ -293,7 +299,7 @@ case $op in
     all_gerrit_names="$2"
 
     if [[ -z $all_gerrit_names && in_git_repo ]]; then
-        all_gerrit_names=$(git config remote.origin.gerrit)
+        all_gerrit_names=$(get_repo_gerrit_name)
     fi
 
     if [[ -z $all_gerrit_names || $all_gerrit_names == "--all" ]]; then
