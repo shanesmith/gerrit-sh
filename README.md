@@ -22,6 +22,24 @@ Installation
 
 3. Have a beer
 
+_NOTE: The installer links to the gerrit-sh tool in the cloned repository, so don't delete it. If you'd rather the installer copy just run `./install.sh --copy`._
+
+_NOTE for Windows: The installer always copies since it does not support linking._
+
+Updating
+--------
+
+1. Pull the latest
+
+    ```
+    git pull
+    ```
+
+2. ???
+
+3. Have another beer
+
+_NOTE: If you decided to originally run the installer with the copy option or if you're on Windows, step 2 should be to re-run `./install.sh --copy`._
 
 Example Usage
 -------------
@@ -41,7 +59,7 @@ view the available commands simply invoking gerrit-sh withou any arguments.
         Show the configured options for <gerrit_name>. If a configuration does not
         exist you will have the option to create one.
 
-    [...]
+    ...
     
 
 To get things started we need to let gerrit-sh know of the remote server we'll
@@ -221,6 +239,11 @@ commands.
     Run a custom gerrit server command, see 
     https://review.openstack.org/Documentation/cmd-index.html#_server
 ```
+
+Compatibility
+-------------
+
+Gerrit-sh has been tested with Bash on Ubuntu, Mac OS X and Windows (msysGit).
 
 TODO
 ----

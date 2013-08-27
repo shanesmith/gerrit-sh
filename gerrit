@@ -127,7 +127,7 @@ confirm() {
       REPLY="$default"
     fi
 
-    if [[ $REPLY =~ [yn] ]]; then
+    if eq_regexp $REPLY "[yn]"; then
       break
     fi
 
@@ -141,6 +141,12 @@ lowercase() {
 
 uppercase() {
   echo "$1" | tr '[a-z]' '[A-Z]'
+}
+
+eq_regexp() {
+  string="$1"
+  regexp="$2"
+  echo "$string" | grep -qE "$regexp"
 }
 
 ssh_gerrit() {
@@ -409,26 +415,26 @@ case $op in
     subject=
     topic=
 
-    while read line; do
-      if [[ $line =~ ^\s*$ ]]; then
+    echo "$result" | while read line; do
+      if eq_regexp $line "^\s*$"; then
         echo "$number [$topic] \"$subject\" ($owner)"
         number=
         owner=
         subject=
         topic=
-      elif [[ $line =~ ^number ]]; then
+      elif eq_regexp $line "^number"; then
         number=$(echo $line | sed -e 's|^.*: *||')
-      elif [[ $line =~ ^name ]]; then
+      elif eq_regexp $line "^name"; then
         owner=$(echo $line | sed -e 's|^.*: *||')
-      elif [[ $line =~ ^subject ]]; then
+      elif eq_regexp $line "^subject"; then
         subject=$(echo $line | sed -e 's|^.*: *||')
-      elif [[ $line =~ ^topic ]]; then
+      elif eq_regexp $line "^topic"; then
         topic=$(echo $line | sed -e 's|^.*: *||')
         #else
         #echo "$line"
       fi
 
-    done < <(echo "$result")
+    done
 
     ;;
 
@@ -519,7 +525,7 @@ case $op in
   checkout|co|recheckout|reco)
 
     is_reco=
-    if [[ $op =~ recheckout|reco ]]; then
+    if eq_regexp $op "recheckout|reco"; then
       is_reco="yes"
     fi
 
@@ -533,7 +539,7 @@ case $op in
       target=$2
     fi
 
-    if [[ $target =~ ^[0-9]+$ ]]; then
+    if eq_regexp $target "^[0-9]+$"; then
 
       change_id=$target
 

@@ -15,6 +15,9 @@ completion_prefix=
 
 install_command='ln -is'
 
+opt_copy=
+opt_force_copy=
+
 die() {
   echo -e "${@}"
   exit
@@ -30,14 +33,15 @@ os_is_mac() {
 
 os_is_windows() {
   # MSYSGIT
-  [[ $(uname -s) =~ MINGW* ]]
+  echo $(uname -s) | grep -q "MINGW*"
 }
 
 is_root() {
   [[ $(id -u) -eq 0 ]]
 }
 
-if ! is_root; then
+
+if ! is_root && ! os_is_windows; then
   exec sudo -p "Install will need sudo permissions to continue. Password: " "$0" "${@}"
   exit $?
 fi
@@ -46,11 +50,11 @@ while [[ $# -gt 0 ]]; do
 
   case $1 in
     --copy)
-      install_command='cp -i'
+      opt_copy='y'
       ;;
 
     --force-copy)
-      install_command='cp -f'
+      opt_force_copy='y'
       ;;
   esac
 
@@ -71,21 +75,29 @@ if os_is_mac; then
 
 elif os_is_windows; then
 
-  die "Installation on Windows (MSYSGIT) not yet supported, but gerrit-sh will still work if you know how to manually install it..."
+  # default install command for Windows is copy since linking isn't supported
+  install_command="cp -i"
+  do_install_completion='n'
+  echo "NOTE: Installer for Windows will copy the gerrit tool to the installation directory, which means that you'll need to re-run this install each time you update this repository (ie: git pull)"
 
+fi
+
+if [[ $opt_force_copy ]]; then
+  install_command='cp -f'
+elif [[ $opt_copy ]]; then
+  install_command='cp -i'
 fi
  
 if [[ -n $completion_prefix ]]; then
   dst_completion="${completion_prefix}${dst_completion}"
 fi
 
-
 if [[ ! -d $dst_command ]]; then
   mkdir -p "$dst_command"
 fi
 
 echo "Installing gerrit command to ${dst_command}"
-sudo $install_command "$src_command" "$dst_command"
+$install_command "$src_command" "$dst_command"
 
 if [[ $do_install_completion == 'y' ]]; then
 
@@ -94,6 +106,6 @@ if [[ $do_install_completion == 'y' ]]; then
   fi
 
   echo "Installing gerrit completion to ${dst_completion}"
-  sudo $install_command "$src_completion" "$dst_completion"
+  $install_command "$src_completion" "$dst_completion"
 
 fi
