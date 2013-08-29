@@ -416,22 +416,20 @@ case $op in
     topic=
 
     echo "$result" | while read line; do
-      if eq_regexp $line "^\s*$"; then
+      if eq_regexp "$line" "^\s*$"; then
         echo "$number [$topic] \"$subject\" ($owner)"
         number=
         owner=
         subject=
         topic=
-      elif eq_regexp $line "^number"; then
+      elif eq_regexp "$line" "number"; then
         number=$(echo $line | sed -e 's|^.*: *||')
-      elif eq_regexp $line "^name"; then
+      elif eq_regexp "$line" "^name"; then
         owner=$(echo $line | sed -e 's|^.*: *||')
-      elif eq_regexp $line "^subject"; then
+      elif eq_regexp "$line" "^subject"; then
         subject=$(echo $line | sed -e 's|^.*: *||')
-      elif eq_regexp $line "^topic"; then
+      elif eq_regexp "$line" "^topic"; then
         topic=$(echo $line | sed -e 's|^.*: *||')
-        #else
-        #echo "$line"
       fi
 
     done
