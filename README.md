@@ -39,13 +39,13 @@ Updating
 
 3. Have another beer
 
-_NOTE: If you decided to originally run the installer with the copy option or if you're on Windows, step 2 should be to re-run `./install.sh --copy`._
+_NOTE: If you decided to originally run the installer with the copy option or if you're on Windows you should re-run `./install.sh --copy` before having another beer._
 
 Example Usage
 -------------
 
 First things first, gerrit-sh is a tool with subcommands, much like git. We can
-view the available commands simply invoking gerrit-sh withou any arguments.
+view the available commands by invoking gerrit-sh without any arguments.
 
 `$ gerrit`
 
@@ -63,7 +63,7 @@ view the available commands simply invoking gerrit-sh withou any arguments.
     
 
 To get things started we need to let gerrit-sh know of the remote server we'll
-be dealing with, so we'll use that command we just learned about above.
+be dealing with, so we'll use the command above we just learned.
 
 `$ gerrit config labyrinth`
 
@@ -138,7 +138,7 @@ look at what's out there assigned to us.
     9832 [master] "tower" (Bobby Bayles)
 
 
-Let's grab the patch for wax. We can specify either the
+Let's grab the patch for "wax". We can specify either the
 patch id or the topic name.
 
 `(feathers) $ gerrit checkout 9736`
@@ -165,6 +165,9 @@ reviewed someone else's all without leaving the comfort of our own shell.
 Truth be told, in practice the web interface is still very useful, especially
 for inline code review comments and for extra information, but I hope this tool
 will save you a few window swaps.
+
+Also note that the first few commands of config and clone are optional, most other
+commands should work while inside a gerrit repo.
 
 
 Commands
@@ -244,14 +247,6 @@ Compatibility
 -------------
 
 Gerrit-sh has been tested with Bash on Ubuntu, Mac OS X and Windows (msysGit).
-
-TODO
-----
-
-- Better help documentation (per command? man file?)
-- Clean old topic branches (detect merged topic branches?)
-- Command to edit an existing config (config --edit default)
-- Pushing without topic or when on branch (ie: master)
 
 
 License
