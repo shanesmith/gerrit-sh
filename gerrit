@@ -63,6 +63,9 @@ commands.
   review [<verified_score> <code_review_score> [<message>]]
     Give a review of the current checked out patch.
 
+  comment [<message>]
+    Post a review comment without having to give a vierified or code-review score. 
+
   submit [<message>]
     Submit the patch for merging with verified = 1 and code-review = 2.
 
@@ -436,7 +439,7 @@ case $op in
 
     ;;
 
-  review|submit|abandon)
+  review|comment|submit|abandon)
 
     check_in_git_repo
 
@@ -477,6 +480,10 @@ case $op in
 
       abandon)
         action="--abandon"
+        message="$2"
+        ;;
+
+      comment)
         message="$2"
         ;;
 
