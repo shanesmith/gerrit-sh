@@ -152,6 +152,10 @@ eq_regexp() {
   echo "$string" | grep -qE "$regexp"
 }
 
+git_branch_exists() {
+  git show-ref --verify --quiet refs/heads/"$1"
+}
+
 ssh_gerrit() {
   ssh -p $remote_port "$remote_user@$remote_host" -- gerrit $1
 }
@@ -602,7 +606,7 @@ case $op in
 
         echo "Patch topic is \"master\", therefore staying on detached head."
 
-      elif [[ -n $topic && $(git branch | grep "$topic") ]]; then
+      elif [[ -n "$topic" ]] && git_branch_exists "$topic"; then
 
         if [[ $is_reco ]]; then
           REPLY='y'
@@ -610,14 +614,14 @@ case $op in
           ask "Branch with name $topic already exists, overwrite?"
         fi
 
-        if [[ $REPLY ==  'y' ]]; then
+        if [[ $REPLY == 'y' ]]; then
           git checkout master
           git branch -D "$topic"
         fi
 
       fi
 
-      if [[ -z $topic || $(git branch | grep "$topic") ]]; then
+      if [[ -z $topic ]] || git_branch_exists "$topic"; then
         git checkout FETCH_HEAD
       else
         git checkout -b $topic FETCH_HEAD
