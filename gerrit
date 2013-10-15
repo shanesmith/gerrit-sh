@@ -430,13 +430,13 @@ case $op in
         subject=
         topic=
       elif eq_regexp "$line" "number"; then
-        number=$(echo $line | sed -e 's|^.*: *||')
+        number=$(echo $line | sed -e 's|^[^:]*: *||')
       elif eq_regexp "$line" "^name"; then
-        owner=$(echo $line | sed -e 's|^.*: *||')
+        owner=$(echo $line | sed -e 's|^[^:]*: *||')
       elif eq_regexp "$line" "^subject"; then
-        subject=$(echo $line | sed -e 's|^.*: *||')
+        subject=$(echo $line | sed -e 's|^[^:]*: *||')
       elif eq_regexp "$line" "^topic"; then
-        topic=$(echo $line | sed -e 's|^.*: *||')
+        topic=$(echo $line | sed -e 's|^[^:]*: *||')
       fi
 
     done
