@@ -339,7 +339,11 @@ case $op in
 
     if [[ -z $branch ]]; then
 
-      branch="master"
+      branch="$(git config branch.$topic.merge)"
+
+      if [[ -n $branch ]]; then
+        branch="master"
+      fi
 
     fi
 
