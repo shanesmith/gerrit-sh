@@ -293,21 +293,49 @@ case $op in
       type="for"
     elif [[ $op = "draft" ]]; then
       type="drafts"
-    fi
 
-    if [[ $# < 2 ]]; then
-      branch="master"
-    else
-      branch=$2
     fi
 
     topic=$(git symbolic-ref HEAD | cut -d'/' -f 3)
+    branch=
+    reviewers=
+
+    shift
+
+    while [[ $# -gt 0 ]]; do
+
+      arg="$1"
+
+      case $arg in
+        --assign)
+          shift
+          reviewers="$@"
+          break
+          ;;
+        *)
+          branch="$arg"
+          ;;
+      esac
+
+      shift
+
+    done
+
+    if [[ -z $branch ]]; then
+
+      branch="master"
+
+    fi
 
     ref="refs/$type/$branch/$topic"
 
     echo "Pushing to $remote_name ($ref)"
 
     git push $remote_name "HEAD:$ref"
+
+    if [[ -n $reviewers ]]; then
+      gerrit assign $reviewers
+    fi
 
     ;;
 
@@ -524,6 +552,8 @@ case $op in
       reviewer="$1"
 
       ssh_gerrit "set-reviewers --add \"$reviewer\" -- $commit"
+
+      echo "Assigned reviewer $reviewer"
 
       shift
 
