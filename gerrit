@@ -289,14 +289,30 @@ case $op in
 
     get_repo_remote_config
 
+    topic=$(git symbolic-ref --quiet --short HEAD)
+
     if [[ $op = "push" ]]; then
+
       type="for"
+
+      if [[ $(git config "branch.$topic.draft") ]]; then
+        confirm "Topic \"$topic\" was previously pushed as a *draft*, are you sure you want to un-draft it?" 'y'
+        if [[ $REPLY = "y" ]]; then
+          #TODO Unset only when push is successful?
+          git config --unset "branch.$topic.draft"
+        else
+          die "Nothing has been pushed"
+        fi
+      fi
+
     elif [[ $op = "draft" ]]; then
+
       type="drafts"
+
+      git config "branch.$topic.draft" yes
 
     fi
 
-    topic=$(git symbolic-ref HEAD | cut -d'/' -f 3)
     branch=
     reviewers=
 
