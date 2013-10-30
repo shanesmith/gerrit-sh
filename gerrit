@@ -341,7 +341,7 @@ case $op in
 
       branch="$(git config branch.$topic.merge)"
 
-      if [[ -n $branch ]]; then
+      if [[ -z $branch ]]; then
         branch="master"
       fi
 
