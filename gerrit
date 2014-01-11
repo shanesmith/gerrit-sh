@@ -337,12 +337,14 @@ case $op in
 
     done
 
+    ref="refs/$type/$branch/$topic"
     if [[ -z $branch ]]; then
 
       branch="$(git config branch.$topic.merge)"
-
+      ref="refs/$type/$branch/$topic"
       if [[ -z $branch ]]; then
         branch="master"
+        ref="refs/$type/$branch"
       fi
 
     fi
