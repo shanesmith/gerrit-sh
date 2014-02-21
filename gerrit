@@ -636,7 +636,7 @@ case $op in
 
       topic=$target
 
-      change_id=$(ssh_gerrit "query project:$project topic:$topic limit:1" | awk -F ':' '/^ *number/ { print $2 }' | tr -d ' ')
+      change_id=$(ssh_gerrit "query project:$project topic:$topic limit:1" | awk -F ':' '/^ *number/ { print $2; exit; }' | tr -d ' ')
 
       if [[ -z $change_id ]]; then
         die "Could not find topic \"$target\""
