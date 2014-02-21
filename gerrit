@@ -37,17 +37,20 @@ commands.
     List the open patches for which you are assigned.
     ALIAS: st
 
-  push [<base_branch>]
+  push [<base_branch>] [--assign <reviewer> ...]
     Push the current topic branch to the remote based one <base_branch>. If the
     <base_branch> is not provided it is defaulted to master. Essentially the
     same as \`git push origin HEAD:refs/for/<base_branch>/<current_branch>\`.
+    Optionally assign reviewers at the same time with the \`--assign\` argument
+    followed by any ammount of usernames.
     
   draft [<base_branch]
     Same as push, but as a draft 
     (ie: refs/drafts/<base_branch>/<current_branch>)
 
   assign <reviewer> [<reviewer> ...]
-    Assign reviewers by username to the current topic.
+    Assign reviewers by username to the current topic. Usernames are remembered
+    within each repo and become part of tab completion suggestions.
 
   checkout <change_id>|<topic> [<patchset_number>]
     Fetch the patch from remote and create a branch for it of the topic name.
@@ -277,6 +280,8 @@ case $op in
     get_gerrit_remote_config "$remote_name"
 
     ssh_gerrit "$ssh_command"
+
+    exit $?
     ;;
 
   pubmit|ninja)
@@ -573,7 +578,19 @@ case $op in
 
       ssh_gerrit "set-reviewers --add \"$reviewer\" -- $commit"
 
-      echo "Assigned reviewer $reviewer"
+      if [[ $? -eq 0 ]]; then
+
+        echo "Assigned reviewer $reviewer"
+
+        if ! git config --get-all gerrit.reviewers | grep "^$reviewer$"; then
+          git config --add gerrit.reviewers "$reviewer"
+        fi
+
+      else 
+
+        echo "Error while assigning reviewer $reviewer"
+
+      fi
 
       shift
 
