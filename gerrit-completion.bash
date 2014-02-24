@@ -29,7 +29,7 @@ _gerrit() {
 
     COMPREPLY=()
 
-    opts="config projects clone status st push draft assign checkout co rechecout reco review submit abandon pubmit ninja ssh"
+    opts="config projects clone status st push draft assign checkout co rechecout reco review submit abandon pubmit ninja ssh hook-install"
 
     second="${COMP_WORDS[1]}"
     cur="${COMP_WORDS[COMP_CWORD]}"

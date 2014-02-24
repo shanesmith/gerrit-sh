@@ -82,6 +82,11 @@ commands.
   ssh [<gerrit_name>] <command>
     Run a custom gerrit server command, see 
     https://review.openstack.org/Documentation/cmd-index.html#_server
+
+  hook-install
+    Install the gerrit commit-msg hook. The \`gerrit clone\` command already
+    does this automatically, so this command is just in case the repro was
+    cloned by some other method.
 EOF
 }
 
@@ -232,11 +237,22 @@ setup_gerrit_config() {
 }
 
 setup_commit_msg_hook() {
-  if [[ ! -d .git/hooks ]]; then
-    echo "Could not find .git/hooks directory to setup commit-msg hook"
+
+  echo "Setting up commit-msg hook..."
+
+  local git_dir=$(git rev-parse --git-dir)
+
+  if [[ $? -ne 0  ]]; then
+    echo "Could not find .git directory to setup commit-msg hook"
     return
   fi
-  scp -p -P "$remote_port" "$remote_user@$remote_host:hooks/commit-msg" ".git/hooks/"
+
+  local hooks_dir="$git_dir/hooks/"
+
+  mkdir -p "$hooks_dir"
+
+  scp -p -P "$remote_port" "$remote_user@$remote_host:hooks/commit-msg" "$hooks_dir"
+
 }
 
 get_projects() {
@@ -434,8 +450,6 @@ case $op in
 
       git config remote.origin.gerrit "$remote_name"
 
-      echo "Setting up commit-msg hook..."
-
       setup_commit_msg_hook
 
       echo "Done!"
@@ -453,6 +467,16 @@ case $op in
     fi
 
     get_projects "$gerrit_name"
+
+    ;;
+
+  hook-install)
+
+    check_in_git_repo
+
+    get_repo_remote_config
+
+    setup_commit_msg_hook
 
     ;;
 
