@@ -165,7 +165,14 @@ git_branch_exists() {
 }
 
 ssh_gerrit() {
-  ssh -p $remote_port "$remote_user@$remote_host" -- gerrit $1
+  local sshcmd="$GIT_SSH"
+
+  if eq_regexp "$sshcmd" "(?i)plink[^/]*$"; then
+    # plink uses uppercase 'P' for port
+    "$sshcmd" -P $remote_port "$remote_user@$remote_host" "gerrit $1"
+  else
+    "$sshcmd" -p $remote_port "$remote_user@$remote_host" -- gerrit $1
+  fi
 }
 
 get_all_gerrit_remote_names() {
