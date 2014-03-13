@@ -165,7 +165,7 @@ git_branch_exists() {
 }
 
 ssh_gerrit() {
-  local sshcmd="$GIT_SSH"
+  local sshcmd="${GIT_SSH:-ssh}"
 
   if eq_regexp "$sshcmd" "(?i)plink[^/]*$"; then
     # plink uses uppercase 'P' for port
